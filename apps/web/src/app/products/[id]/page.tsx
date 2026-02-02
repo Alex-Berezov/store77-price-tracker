@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ExternalLink, Clock } from 'lucide-react';
@@ -9,6 +10,57 @@ import { ProductImage } from '@/components/ui/product-image';
 
 interface ProductPageProps {
   params: Promise<{ id: string }>;
+}
+
+// Generate dynamic metadata for SEO and Open Graph
+export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
+  const { id } = await params;
+
+  try {
+    const product = await api.products.getById(id);
+
+    if (!product) {
+      return {
+        title: 'Товар не найден',
+      };
+    }
+
+    const finalPrice = formatRubles(product.finalPriceRub);
+    const description = product.description
+      ? `${product.description.slice(0, 150)}...`
+      : `Купить ${product.name} по выгодной цене ${finalPrice}. Актуальные цены с пересчётом по курсу USDT.`;
+
+    return {
+      title: product.name,
+      description,
+      openGraph: {
+        title: `${product.name} — ${finalPrice}`,
+        description,
+        type: 'website',
+        locale: 'ru_RU',
+        images: product.imageUrl
+          ? [
+              {
+                url: getProxiedImageUrl(product.imageUrl),
+                width: 600,
+                height: 600,
+                alt: product.name,
+              },
+            ]
+          : [],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${product.name} — ${finalPrice}`,
+        description,
+        images: product.imageUrl ? [getProxiedImageUrl(product.imageUrl)] : [],
+      },
+    };
+  } catch {
+    return {
+      title: 'Товар не найден',
+    };
+  }
 }
 
 async function ProductContent({ id }: { id: string }) {
