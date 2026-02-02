@@ -1,0 +1,49 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Note: url is required for Prisma 5.x
+// VS Code Prisma extension may show error if using Prisma 7+ validation
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Category model for product categorization
+model Category {
+  id          String    @id @default(cuid())
+  name        String
+  slug        String    @unique
+  url         String    // External URL on store77.net
+  parentId    String?   @map("parent_id")
+  parent      Category? @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children    Category[] @relation("CategoryHierarchy")
+  products    Product[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("categories")
+}
+
+// Product model for scraped items
+model Product {
+  id            String    @id @default(cuid())
+  externalId    String?   @unique @map("external_id") // ID from store77.net
+  name          String
+  slug          String    @unique
+  description   String?   @db.Text
+  originalPrice Int       @map("original_price") // Price in kopecks (cents)
+  finalPrice    Int       @map("final_price")    // originalPrice - 1000 RUB (in kopecks)
+  imageUrl      String?   @map("image_url")
+  externalUrl   String    @map("external_url")   // URL on store77.net
+  categoryId    String?   @map("category_id")
+  category      Category? @relation(fields: [categoryId], references: [id])
+  isActive      Boolean   @default(true) @map("is_active")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([finalPrice])
+  @@map("products")
+}

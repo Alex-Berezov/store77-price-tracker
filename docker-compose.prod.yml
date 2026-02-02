@@ -1,0 +1,209 @@
+# Docker Compose for Production Environment
+# Usage: docker-compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+# - Create .env file with required variables (see .env.example)
+# - Build images first: docker-compose -f docker-compose.prod.yml build
+#
+# Commands:
+# - Start:   docker-compose -f docker-compose.prod.yml up -d
+# - Stop:    docker-compose -f docker-compose.prod.yml down
+# - Logs:    docker-compose -f docker-compose.prod.yml logs -f
+# - Rebuild: docker-compose -f docker-compose.prod.yml up -d --build
+
+services:
+  # ============================================================================
+  # PostgreSQL Database
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: store77-postgres-prod
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      POSTGRES_DB: ${DB_NAME:-store_scraper}
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: '--encoding=UTF-8 --lc-collate=C --lc-ctype=C'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-store_scraper}']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ============================================================================
+  # Redis Cache
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: store77-redis-prod
+    restart: always
+    command: >
+      redis-server 
+      --appendonly yes 
+      --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', '-a', '${REDIS_PASSWORD}', 'ping']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - internal
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '10m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  # ============================================================================
+  # NestJS API Backend
+  # ============================================================================
+  api:
+    # Use pre-built image from registry (for CI/CD) or build locally
+    image: ${API_IMAGE:-store77-api:latest}
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: store77-api-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      # Database
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@postgres:5432/${DB_NAME:-store_scraper}?schema=public
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      # API
+      API_PORT: ${API_PORT:-8080}
+      API_HOST: 0.0.0.0
+      # Scraper
+      SCRAPE_INTERVAL: ${SCRAPE_INTERVAL:-3600}
+      SCRAPE_TARGET_URL: ${SCRAPE_TARGET_URL:-https://store77.net}
+      # Currency
+      GRINEX_API_URL: ${GRINEX_API_URL:-https://grinex.io/api/v1/spot/depth?symbol=usdta7a5}
+      CURRENCY_CACHE_TTL: ${CURRENCY_CACHE_TTL:-300}
+    ports:
+      - '${API_PORT:-8080}:${API_PORT:-8080}'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:${API_PORT:-8080}/api/health']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - internal
+      - external
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '50m'
+        max-file: '5'
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # ============================================================================
+  # Next.js Frontend
+  # ============================================================================
+  web:
+    # Use pre-built image from registry (for CI/CD) or build locally
+    image: ${WEB_IMAGE:-store77-web:latest}
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      args:
+        # Build-time API URL for SSR (internal Docker network)
+        NEXT_PUBLIC_API_URL: http://api:${API_PORT:-8080}
+    container_name: store77-web-prod
+    restart: always
+    environment:
+      NODE_ENV: production
+      # Runtime API URL (for client-side requests from browser)
+      # This should be the external URL accessible from user's browser
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - '${WEB_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://localhost:3000/']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - internal
+      - external
+    logging:
+      driver: 'json-file'
+      options:
+        max-size: '20m'
+        max-file: '3'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+# ==============================================================================
+# Volumes - Persistent data storage
+# ==============================================================================
+volumes:
+  postgres_data:
+    driver: local
+    name: store77-postgres-data
+  redis_data:
+    driver: local
+    name: store77-redis-data
+
+# ==============================================================================
+# Networks
+# ==============================================================================
+networks:
+  # Internal network - for inter-service communication (not exposed)
+  internal:
+    driver: bridge
+    internal: true
+    name: store77-internal
+  # External network - for services that need external access
+  external:
+    driver: bridge
+    name: store77-external

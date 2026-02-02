@@ -1,0 +1,65 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Dependencies (will be installed fresh in Docker)
+node_modules
+**/node_modules
+
+# Build outputs (will be built in Docker)
+**/dist
+**/.next
+**/build
+**/.turbo
+
+# Development files
+**/*.log
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/.pnpm-debug.log*
+
+# IDE
+.idea
+.vscode
+**/*.swp
+**/*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files (should be passed via docker-compose)
+.env
+.env.*
+!.env.example
+
+# Documentation (not needed in production image)
+docs/
+*.md
+!README.md
+
+# Tests
+**/*.spec.ts
+**/*.test.ts
+**/test/
+**/tests/
+**/__tests__/
+**/e2e/
+**/coverage/
+**/.nyc_output/
+
+# Playwright cache (will use system browser)
+**/playwright-report/
+**/playwright/.cache/
+
+# Docker files (no need to include in context)
+Dockerfile
+docker-compose*.yml
+
+# Misc
+**/.eslintcache
+**/.prettiercache
+**/tsconfig.tsbuildinfo
+**/tsconfig.build.tsbuildinfo
