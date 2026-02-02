@@ -101,8 +101,11 @@ export class BrowserService implements OnModuleDestroy {
 
   /**
    * Create a new browser context with random user agent
+   * @param options - Optional browser context options to merge
    */
-  async createContext(): Promise<BrowserContext> {
+  async createContext(options?: {
+    extraHTTPHeaders?: Record<string, string>;
+  }): Promise<BrowserContext> {
     const browser = await this.initBrowser();
     const userAgent = this.getRandomUserAgent();
 
@@ -111,9 +114,19 @@ export class BrowserService implements OnModuleDestroy {
       viewport: { width: 1920, height: 1080 },
       locale: 'ru-RU',
       timezoneId: 'Europe/Moscow',
+      extraHTTPHeaders: options?.extraHTTPHeaders,
     });
 
     return context;
+  }
+
+  /**
+   * Create a new page with context (caller is responsible for closing)
+   */
+  async createPage(): Promise<Page> {
+    const context = await this.createContext();
+    const page = await context.newPage();
+    return page;
   }
 
   /**

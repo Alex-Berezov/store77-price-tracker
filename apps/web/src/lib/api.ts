@@ -120,12 +120,15 @@ export interface CurrencyRateResponse {
 }
 
 /**
- * Get proxied image URL that bypasses store77.net hotlinking protection
- * Uses the backend API with headless browser for image fetching
+ * Get image URL for display
+ * Returns the original store77.net URL directly - modern browsers handle this fine
+ * The proxy approach was attempted but store77.net has aggressive hotlink protection
  */
 export function getProxiedImageUrl(imageUrl: string): string {
   if (!imageUrl) {
     return '';
   }
-  return `${API_BASE_URL}/api/images/proxy?url=${encodeURIComponent(imageUrl)}`;
+  // Return original URL - browser will load it directly
+  // If hotlinking is blocked, ProductImage component will show fallback
+  return imageUrl;
 }
