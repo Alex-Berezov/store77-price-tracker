@@ -99,13 +99,13 @@ export class ImagesService {
       await page.route('**/*', async (route) => {
         const request = route.request();
         const url = request.url();
-        
+
         // If this is our target image, capture it
         if (url === imageUrl || url.includes(imageUrl.split('/').pop() || '')) {
           try {
             const response = await route.fetch();
             const contentType = response.headers()['content-type'] || 'image/jpeg';
-            
+
             if (contentType.startsWith('image/')) {
               imageData = await response.body();
               imageContentType = contentType;
@@ -121,9 +121,9 @@ export class ImagesService {
       });
 
       // Navigate to the main page which will trigger image loads
-      await page.goto('https://store77.net/', { 
+      await page.goto('https://store77.net/', {
         waitUntil: 'domcontentloaded',
-        timeout: 15000 
+        timeout: 15000,
       });
 
       // If we didn't catch it yet, try to load the image directly in the page context
@@ -134,20 +134,23 @@ export class ImagesService {
             const response = await fetch(url, {
               credentials: 'include',
               headers: {
-                'Accept': 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
+                Accept: 'image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8',
               },
             });
-            
+
             if (!response.ok) return null;
-            
+
             const contentType = response.headers.get('content-type') || 'image/jpeg';
             if (!contentType.startsWith('image/')) return null;
-            
+
             const arrayBuffer = await response.arrayBuffer();
             const base64 = btoa(
-              new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+              new Uint8Array(arrayBuffer).reduce(
+                (data, byte) => data + String.fromCharCode(byte),
+                ''
+              )
             );
-            
+
             return { base64, contentType };
           } catch {
             return null;
@@ -157,7 +160,9 @@ export class ImagesService {
         if (result) {
           imageData = Buffer.from(result.base64, 'base64');
           imageContentType = result.contentType;
-          this.logger.debug(`Fetched image via page context: ${imageUrl} (${imageData.length} bytes)`);
+          this.logger.debug(
+            `Fetched image via page context: ${imageUrl} (${imageData.length} bytes)`
+          );
         }
       }
 
