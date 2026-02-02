@@ -1,6 +1,10 @@
 /**
  * Integration test for Scraper Service
  * Tests real browser-based scraping of store77.net
+ *
+ * NOTE: These tests require a real browser (Playwright) and network access.
+ * They are skipped in CI environments.
+ * Run locally with: yarn workspace api test scraper.integration
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,7 +13,11 @@ import { ScraperService } from './scraper.service';
 import { BrowserService } from './browser.service';
 import { PrismaService } from '../prisma';
 
-describe('ScraperService Integration', () => {
+// Skip in CI environment
+const isCI = process.env.CI === 'true';
+const describeOrSkip = isCI ? describe.skip : describe;
+
+describeOrSkip('ScraperService Integration', () => {
   let service: ScraperService;
   let browserService: BrowserService;
 

@@ -222,7 +222,3 @@ export class ProductsService {
     };
   }
 }
-
-console.log('====================================');
-console.log('test 123');
-console.log('====================================');
