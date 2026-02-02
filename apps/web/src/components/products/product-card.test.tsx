@@ -2,15 +2,16 @@ import { render, screen } from '@testing-library/react';
 import { ProductCard } from './product-card';
 import { Product } from '@/types';
 
-// Mock next/image
-jest.mock('next/image', () => ({
-  __esModule: true,
-  default: function MockImage(props: {
-    src: string;
+// Mock ProductImage component
+jest.mock('@/components/ui/product-image', () => ({
+  ProductImage: function MockProductImage(props: {
+    src: string | null;
     alt: string;
-    fill?: boolean;
     className?: string;
   }) {
+    if (!props.src) {
+      return <div>📦</div>;
+    }
     return (
       <img
         src={props.src}
@@ -20,6 +21,11 @@ jest.mock('next/image', () => ({
       />
     );
   },
+}));
+
+// Mock getProxiedImageUrl to return original URL for testing
+jest.mock('@/lib/api', () => ({
+  getProxiedImageUrl: (url: string) => url,
 }));
 
 const mockProduct: Product = {
